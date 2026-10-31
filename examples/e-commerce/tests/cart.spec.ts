@@ -1,5 +1,4 @@
 // @basket @cart
-import { describe, it, expect } from 'vitest';
 import { CartPage } from '../src/pages/cart.page.js';
 
 describe('Basket & Cart Operations', () => {
