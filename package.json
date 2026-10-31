@@ -1,6 +1,6 @@
 {
   "name": "@ujjwal-s-s/smart-regression-agent",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "AI-Powered Smart Regression Test Selection Agent for Playwright",
   "main": "dist/index.js",
@@ -49,6 +49,16 @@
     "ts-morph": "^10.0.1",
     "zod": "^4.6.7"
   },
+  "bundleDependencies": [
+    "@google/genai",
+    "cli-table3",
+    "commander",
+    "dotenv",
+    "glob",
+    "picocolors",
+    "ts-morph",
+    "zod"
+  ],
   "devDependencies": {
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
