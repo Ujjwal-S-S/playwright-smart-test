@@ -15,7 +15,7 @@ export class AISemanticAnalyzer {
 
   constructor(private config: SmartRegressionConfig) {
     this.apiKey = config.ai.apiKey || process.env.GEMINI_API_KEY;
-    this.modelName = config.ai.model || 'gemini-2.5-flash';
+    this.modelName = config.ai.model || 'gemini-3.8-flash';
 
     if (this.apiKey) {
       this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
