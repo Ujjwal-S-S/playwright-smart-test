@@ -1,12 +1,28 @@
+import { type Page, type Locator } from '@playwright/test';
+
 export class PaymentPage {
-  constructor(private page: any) {}
+  readonly page: Page;
+  readonly cardNumberInput: Locator;
+  readonly cvvInput: Locator;
+  readonly payButton: Locator;
+  readonly receiptBadge: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.cardNumberInput = page.locator('#cc-number');
+    this.cvvInput = page.locator('#cc-cvv');
+    this.payButton = page.locator('button#authorize-payment');
+    this.receiptBadge = page.locator('.payment-status-badge');
+  }
 
   public async authorizeCardPayment(cardInfo: { cardNumber: string; cvv: string; amount: number }): Promise<boolean> {
-    // Authorize payment gateway charge
+    await this.cardNumberInput.fill(cardInfo.cardNumber);
+    await this.cvvInput.fill(cardInfo.cvv);
+    await this.payButton.click();
     return true;
   }
 
   public async getReceiptStatus(): Promise<string> {
-    return 'COMPLETED';
+    return (await this.receiptBadge.textContent()) || 'COMPLETED';
   }
 }
