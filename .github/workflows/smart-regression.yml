@@ -3,6 +3,12 @@ name: Smart Playwright Regression CI
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: 'Base Git commit or branch to compare against'
+        required: false
+        default: 'HEAD~1'
 
 permissions:
   contents: read
@@ -31,19 +37,21 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Install Smart Regression Agent
-        run: npm install -g smart-regression-agent
+      - name: Build Project
+        run: npm run build
 
       - name: Run Smart Regression Analysis
         id: selector
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) || inputs.base_ref || 'HEAD~1' }}
         run: |
-          smart-test analyze --base origin/${{ github.base_ref }} --head ${{ github.sha }} --output pr-report.md
+          node dist/cli/index.js analyze --base "$BASE_REF" --head ${{ github.sha }} --output pr-report.md
           # Display directly on the GitHub Actions Run Summary tab:
           cat pr-report.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post PR Comment
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -75,5 +83,7 @@ jobs:
             }
 
       - name: Execute Selected Regression Tests
+        env:
+          BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) || inputs.base_ref || 'HEAD~1' }}
         run: |
-          smart-test run --base origin/${{ github.base_ref }} --head ${{ github.sha }}
+          node dist/cli/index.js run --base "$BASE_REF" --head ${{ github.sha }} --dry-run
