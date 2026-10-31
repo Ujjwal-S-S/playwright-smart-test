@@ -4,21 +4,16 @@ import { ASTDependencyGraph } from '../src/graph/dependency-graph.js';
 
 describe('ASTDependencyGraph', () => {
   it('builds dependency graph and detects tests importing modified page object', async () => {
-    const exampleCwd = path.resolve(__dirname, '../examples/e-commerce');
-    const graph = new ASTDependencyGraph(exampleCwd);
+    const fixtureCwd = path.resolve(__dirname, 'fixtures');
+    const graph = new ASTDependencyGraph(fixtureCwd);
 
-    await graph.buildGraph(['src', 'tests']);
+    await graph.buildGraph(['pages', 'tests']);
 
-    const knownSpecs = [
-      'tests/checkout.spec.ts',
-      'tests/cart.spec.ts',
-      'tests/payment.spec.ts',
-      'tests/profile.spec.ts',
-    ];
+    const knownSpecs = ['tests/checkout.spec.ts', 'tests/unrelated.spec.ts'];
 
     // Simulate changing checkout.page.ts
-    const impacted = graph.findImpactedTestSpecs(['src/pages/checkout.page.ts'], knownSpecs);
+    const impacted = graph.findImpactedTestSpecs(['pages/checkout.page.ts'], knownSpecs);
     expect(impacted).toContain('tests/checkout.spec.ts');
-    expect(impacted).not.toContain('tests/profile.spec.ts');
+    expect(impacted).not.toContain('tests/unrelated.spec.ts');
   });
 });
