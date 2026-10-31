@@ -42,5 +42,9 @@ export function loadConfig(cwd: string = process.cwd(), customConfigPath?: strin
     }
   }
 
+  if (process.env.GEMINI_MODEL) {
+    parsed.ai.model = process.env.GEMINI_MODEL;
+  }
+
   return parsed;
 }
