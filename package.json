@@ -1,6 +1,7 @@
 {
   "name": "smart-regression-agent",
   "version": "1.0.0",
+  "type": "module",
   "description": "AI-Powered Smart Regression Test Selection Agent for Playwright",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,17 +29,20 @@
     "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
     "dotenv": "^16.4.7",
-    "glob": "^11.0.0",
+    "glob": "^14.0.3",
     "picocolors": "^1.1.1",
     "simple-git": "^4.0.2",
-    "ts-morph": "^24.0.0",
-    "zod": "^3.24.1"
+    "ts-morph": "^10.0.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "minimatch": "^11.0.3"
   }
 }

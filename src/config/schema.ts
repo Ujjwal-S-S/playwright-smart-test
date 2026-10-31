@@ -28,8 +28,22 @@ export const SmartRegressionConfigSchema = z.object({
       '**/.github/workflows/playwright*.yml'
     ]),
     maxImpactRatioForFullRun: z.number().min(0).max(1).default(0.7),
-  }).default({}),
-  ai: AIConfigSchema.default({}),
+  }).default({
+    fullRunPatterns: [
+      'playwright.config.*',
+      'package.json',
+      'package-lock.json',
+      '**/global-setup.*',
+      '**/global-teardown.*',
+      '**/.github/workflows/playwright*.yml'
+    ],
+    maxImpactRatioForFullRun: 0.7,
+  }),
+  ai: AIConfigSchema.default({
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    temperature: 0.2,
+  }),
 });
 
 export type SmartRegressionConfig = z.infer<typeof SmartRegressionConfigSchema>;
