@@ -1,0 +1,43 @@
+{
+  "name": "smart-regression-agent",
+  "version": "1.0.0",
+  "description": "AI-Powered Smart Regression Test Selection Agent for Playwright",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "smart-test": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "playwright",
+    "regression-testing",
+    "test-impact-analysis",
+    "ai-agent",
+    "gemini",
+    "ci-cd"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^0.2.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.7",
+    "glob": "^11.0.0",
+    "picocolors": "^1.1.1",
+    "simple-git": "^3.27.0",
+    "ts-morph": "^24.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
