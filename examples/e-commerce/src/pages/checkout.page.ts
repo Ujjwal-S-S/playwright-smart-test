@@ -37,6 +37,13 @@ export class CheckoutPage {
     return total * 0.9;
   }
 
+  public async applyLoyaltyRewardPoints(points: number): Promise<number> {
+    // Loyalty program deduction calculation
+    const total = await this.cartPage.calculateTotal();
+    const discount = Math.min(points * 0.05, 50);
+    return Math.max(total - discount, 0);
+  }
+
   public async submitOrderSummary(): Promise<{ orderId: string; payableAmount: number }> {
     await this.submitOrderButton.click();
     return { orderId: 'ORD-9912', payableAmount: 135.00 };
