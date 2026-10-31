@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { glob } from 'node:fs/promises';
+import { glob } from 'glob';
 import ts from 'typescript';
 import { SpecCatalogEntry } from '../config/schema.js';
 
@@ -18,18 +18,19 @@ export class TestCatalogIndexer {
 
     const matchedFiles: string[] = [];
 
-    // Native Node.js 22+ fs/promises glob
     for (const pattern of testMatch) {
       try {
-        for await (const entry of glob(pattern, { cwd: fullTestDir })) {
-          matchedFiles.push(entry);
-        }
+        const found = await glob(pattern, {
+          cwd: fullTestDir,
+          nodir: true,
+          posix: true,
+        });
+        matchedFiles.push(...found);
       } catch {
-        // Fallback simple recursive scan if pattern fails
         const files = this.recursiveScan(fullTestDir);
         for (const f of files) {
           if (f.endsWith('.spec.ts') || f.endsWith('.test.ts')) {
-            matchedFiles.push(path.relative(fullTestDir, f));
+            matchedFiles.push(path.relative(fullTestDir, f).replace(/\\/g, '/'));
           }
         }
       }
