@@ -1,6 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
 import {
-  AIConfigSchema,
   AIImpactAnalysis,
   AIImpactAnalysisSchema,
   DiffFile,
@@ -37,27 +36,56 @@ export class AISemanticAnalyzer {
       };
     }
 
-    // Try AI generation if API key is configured
+    // Try AI generation with candidate models and exponential backoff retry for 503/429 spikes
     if (this.genAI && this.apiKey) {
-      try {
-        return await this.callGemini(changedFiles, catalog);
-      } catch (err) {
-        console.warn(`[smart-test] AI Provider error (${err instanceof Error ? err.message : String(err)}). Falling back to built-in semantic inference.`);
+      const candidateModels = [this.modelName, 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      const uniqueModels = Array.from(new Set(candidateModels));
+
+      for (const model of uniqueModels) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            return await this.callGeminiWithModel(model, changedFiles, catalog);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            const isRetryable =
+              msg.includes('503') ||
+              msg.includes('429') ||
+              msg.includes('high demand') ||
+              msg.includes('UNAVAILABLE') ||
+              msg.includes('overloaded');
+
+            if (isRetryable && attempt < 3) {
+              const delay = attempt * 1500;
+              console.warn(
+                `[smart-test] Gemini ${model} temporarily busy (503/429). Retrying in ${delay}ms (attempt ${attempt}/3)...`
+              );
+              await new Promise((res) => setTimeout(res, delay));
+            } else if (attempt === 3) {
+              console.warn(`[smart-test] Model ${model} unavailable after 3 attempts (${msg}).`);
+              break;
+            } else {
+              // Non-retryable error, try next model
+              break;
+            }
+          }
+        }
       }
+      console.warn(`[smart-test] All Gemini model attempts exhausted. Falling back to built-in semantic inference.`);
     }
 
     // Fallback semantic inference engine (ensures offline reliability & unit test reproducibility)
     return this.inferSemanticImpactLocally(changedFiles, catalog);
   }
 
-  private async callGemini(
+  private async callGeminiWithModel(
+    modelName: string,
     changedFiles: DiffFile[],
     catalog: SpecCatalogEntry[]
   ): Promise<AIImpactAnalysis> {
     const prompt = this.buildPrompt(changedFiles, catalog);
 
     const response = await this.genAI!.models.generateContent({
-      model: this.modelName,
+      model: modelName,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -170,11 +198,6 @@ Respond ONLY with a valid JSON object matching this schema:
     }
 
     // Match catalog tests to changed and impacted components
-    const specMap = new Map<string, SpecCatalogEntry>();
-    for (const spec of catalog) {
-      specMap.set(spec.filePath, spec);
-    }
-
     for (const spec of catalog) {
       const lowerSpec = spec.filePath.toLowerCase();
       let matchedDirect = false;
