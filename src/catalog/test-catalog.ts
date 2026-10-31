@@ -1,18 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { glob } from 'glob';
-import { Project } from 'ts-morph';
+import { glob } from 'node:fs/promises';
+import ts from 'typescript';
 import { SpecCatalogEntry } from '../config/schema.js';
 
 export class TestCatalogIndexer {
-  private project: Project;
-
-  constructor(private cwd: string = process.cwd()) {
-    this.project = new Project({
-      skipAddingFilesFromTsConfig: true,
-      compilerOptions: { allowJs: true },
-    });
-  }
+  constructor(private cwd: string = process.cwd()) {}
 
   public async scanTestFiles(
     testDir: string = 'tests',
@@ -23,17 +16,26 @@ export class TestCatalogIndexer {
       return [];
     }
 
-    const matches: string[] = [];
+    const matchedFiles: string[] = [];
+
+    // Native Node.js 22+ fs/promises glob
     for (const pattern of testMatch) {
-      const found = await glob(pattern, {
-        cwd: fullTestDir,
-        nodir: true,
-        posix: true,
-      });
-      matches.push(...found);
+      try {
+        for await (const entry of glob(pattern, { cwd: fullTestDir })) {
+          matchedFiles.push(entry);
+        }
+      } catch {
+        // Fallback simple recursive scan if pattern fails
+        const files = this.recursiveScan(fullTestDir);
+        for (const f of files) {
+          if (f.endsWith('.spec.ts') || f.endsWith('.test.ts')) {
+            matchedFiles.push(path.relative(fullTestDir, f));
+          }
+        }
+      }
     }
 
-    const uniqueFiles = Array.from(new Set(matches)).map((rel) =>
+    const uniqueFiles = Array.from(new Set(matchedFiles)).map((rel) =>
       path.join(testDir, rel).replace(/\\/g, '/')
     );
 
@@ -41,51 +43,82 @@ export class TestCatalogIndexer {
 
     for (const fileRelPath of uniqueFiles) {
       const fullPath = path.resolve(this.cwd, fileRelPath);
-      const entry = this.indexSpecFile(fullPath, fileRelPath);
-      catalog.push(entry);
+      if (fs.existsSync(fullPath)) {
+        const entry = this.indexSpecFile(fullPath, fileRelPath);
+        catalog.push(entry);
+      }
     }
 
     return catalog;
   }
 
-  private indexSpecFile(fullPath: string, relativePath: string): SpecCatalogEntry {
-    const sourceFile = this.project.addSourceFileAtPathIfExists(fullPath) ||
-      this.project.createSourceFile(fullPath, fs.readFileSync(fullPath, 'utf8'), { overwrite: true });
+  private recursiveScan(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...this.recursiveScan(full));
+      } else if (entry.isFile()) {
+        results.push(full);
+      }
+    }
+    return results;
+  }
 
-    const content = sourceFile.getFullText();
+  private indexSpecFile(fullPath: string, relativePath: string): SpecCatalogEntry {
+    const content = fs.readFileSync(fullPath, 'utf8');
+    const sourceFile = ts.createSourceFile(
+      fullPath,
+      content,
+      ts.ScriptTarget.Latest,
+      true
+    );
+
     const testTitles: string[] = [];
     const tags: string[] = [];
     const importedModules: string[] = [];
 
-    // Extract import declarations
-    for (const imp of sourceFile.getImportDeclarations()) {
-      const moduleSpecifier = imp.getModuleSpecifierValue();
-      importedModules.push(moduleSpecifier);
-    }
+    const visit = (node: ts.Node) => {
+      // 1. Extract import statements
+      if (ts.isImportDeclaration(node)) {
+        if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+          importedModules.push(node.moduleSpecifier.text);
+        }
+      }
 
-    // Extract test names and describe blocks
-    sourceFile.forEachDescendant((node) => {
-      const text = node.getText();
-      // Match test('...', or test.describe('...',
-      if (node.getKindName() === 'CallExpression') {
-        const expressionText = (node as any).getExpression?.()?.getText?.() || '';
+      // 2. Extract Playwright test('...', ...) and test.describe('...', ...) calls
+      if (ts.isCallExpression(node)) {
+        const expr = node.expression;
+        let callName = '';
+
+        if (ts.isIdentifier(expr)) {
+          callName = expr.text;
+        } else if (ts.isPropertyAccessExpression(expr)) {
+          callName = `${expr.expression.getText(sourceFile)}.${expr.name.text}`;
+        }
+
         if (
-          expressionText === 'test' ||
-          expressionText === 'test.describe' ||
-          expressionText === 'test.only' ||
-          expressionText === 'it' ||
-          expressionText === 'describe'
+          callName === 'test' ||
+          callName === 'test.describe' ||
+          callName === 'test.only' ||
+          callName === 'it' ||
+          callName === 'describe'
         ) {
-          const args = (node as any).getArguments?.() || [];
-          if (args.length > 0) {
-            const firstArg = args[0].getText().replace(/^['"`]|['"`]$/g, '');
-            testTitles.push(firstArg);
+          const firstArg = node.arguments[0];
+          if (firstArg && (ts.isStringLiteral(firstArg) || ts.isNoSubstitutionTemplateLiteral(firstArg))) {
+            testTitles.push(firstArg.text);
           }
         }
       }
-    });
 
-    // Extract tags like @checkout, @smoke, { tag: '@payment' }
+      ts.forEachChild(node, visit);
+    };
+
+    visit(sourceFile);
+
+    // Extract tags like @checkout, @payment from code comments and titles
     const tagMatches = content.match(/@[a-zA-Z0-9_\-]+/g);
     if (tagMatches) {
       for (const t of tagMatches) {

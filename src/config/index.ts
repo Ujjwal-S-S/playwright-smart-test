@@ -3,6 +3,7 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import { SmartRegressionConfig, SmartRegressionConfigSchema } from './schema.js';
 
+// Load environment variables via industry-standard dotenv
 dotenv.config();
 
 export * from './schema.js';
