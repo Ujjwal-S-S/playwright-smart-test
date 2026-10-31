@@ -25,4 +25,18 @@ index 2345678..9abcdef0 100644
     expect(patches.has('src/pages/checkout.page.ts')).toBe(true);
     expect(patches.has('src/pages/cart.page.ts')).toBe(true);
   });
+
+  it('parses git diff --numstat output accurately', () => {
+    const analyzer = new GitDiffAnalyzer();
+    const numstat = `
+12\t2\tsrc/pages/checkout.page.ts
+5\t0\tsrc/pages/cart.page.ts
+-\t-\tassets/logo.png
+`.trim();
+
+    const result = analyzer.parseNumstat(numstat);
+    expect(result.get('src/pages/checkout.page.ts')).toEqual({ additions: 12, deletions: 2 });
+    expect(result.get('src/pages/cart.page.ts')).toEqual({ additions: 5, deletions: 0 });
+    expect(result.get('assets/logo.png')).toEqual({ additions: 0, deletions: 0 });
+  });
 });

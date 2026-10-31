@@ -290,7 +290,8 @@ The repository is built following strict enterprise security standards:
 - **`npm audit` verified clean**: **0 vulnerabilities** across all direct and transitive dependencies.
 - **Zero hardcoded credentials**: All secret tokens use environment variables (`GEMINI_API_KEY`, `GITHUB_TOKEN`).
 - **Strict Zod schema validation**: AI model outputs are strictly parsed and typed at runtime, rejecting any malformed responses.
-- **Dependency Overrides**: Pinned modern patched sub-dependencies (`minimatch >= 11.0.3`, `simple-git >= 4.0.2`, `vitest >= 5.0.5`, `zod >= 4.6.7`).
+- **Dependency Overrides**: Pinned modern patched sub-dependencies (`minimatch >= 11.0.3`, `vitest >= 5.0.5`, `zod >= 4.6.7`).
+- **Native Git Integration**: Uses Node.js native `child_process.execFile` directly instead of third-party wrappers, eliminating wrapper vulnerability vectors completely.
 
 ---
 

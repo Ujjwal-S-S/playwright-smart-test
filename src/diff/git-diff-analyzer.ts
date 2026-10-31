@@ -1,5 +1,8 @@
-import { simpleGit, SimpleGit } from 'simple-git';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { DiffFile } from '../config/schema.js';
+
+const execFileAsync = promisify(execFile);
 
 export interface DiffOptions {
   base?: string;
@@ -8,66 +11,92 @@ export interface DiffOptions {
 }
 
 export class GitDiffAnalyzer {
-  private git: SimpleGit;
+  constructor(private cwd: string = process.cwd()) {}
 
-  constructor(private cwd: string = process.cwd()) {
-    this.git = simpleGit(cwd);
+  private async runGit(args: string[]): Promise<string> {
+    try {
+      const { stdout } = await execFileAsync('git', args, {
+        cwd: this.cwd,
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      });
+      return stdout;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Git command failed [git ${args.join(' ')}]: ${message}`);
+    }
   }
 
   public async getChangedFiles(options: DiffOptions = {}): Promise<DiffFile[]> {
-    try {
-      const isRepo = await this.git.checkIsRepo();
-      if (!isRepo) {
-        throw new Error(`Directory ${this.cwd} is not a git repository.`);
-      }
+    // 1. Verify repository
+    await this.runGit(['rev-parse', '--is-inside-work-tree']);
 
-      let diffSummary;
-      let rawDiff = '';
-
-      if (options.base && options.head) {
-        diffSummary = await this.git.diffSummary([`${options.base}...${options.head}`]);
-        rawDiff = await this.git.diff([`${options.base}...${options.head}`]);
-      } else if (options.base) {
-        diffSummary = await this.git.diffSummary([options.base]);
-        rawDiff = await this.git.diff([options.base]);
-      } else if (options.staged) {
-        diffSummary = await this.git.diffSummary(['--cached']);
-        rawDiff = await this.git.diff(['--cached']);
-      } else {
-        // Unstaged + staged working tree changes vs HEAD
-        diffSummary = await this.git.diffSummary(['HEAD']);
-        rawDiff = await this.git.diff(['HEAD']);
-      }
-
-      const patchesByFile = this.splitPatches(rawDiff);
-
-      const files: DiffFile[] = diffSummary.files.map((file) => {
-        let status: DiffFile['status'] = 'modified';
-        if ('binary' in file && file.binary) {
-          status = 'modified';
-        }
-
-        const patch = patchesByFile.get(file.file) || '';
-        if (patch.includes('new file mode')) {
-          status = 'added';
-        } else if (patch.includes('deleted file mode')) {
-          status = 'deleted';
-        }
-
-        return {
-          path: file.file.replace(/\\/g, '/'),
-          status,
-          additions: 'insertions' in file ? file.insertions : 0,
-          deletions: 'deletions' in file ? file.deletions : 0,
-          patch,
-        };
-      });
-
-      return files;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to analyze git diff: ${message}`);
+    // 2. Determine diff arguments
+    let diffRangeArgs: string[];
+    if (options.base && options.head) {
+      diffRangeArgs = [`${options.base}...${options.head}`];
+    } else if (options.base) {
+      diffRangeArgs = [options.base];
+    } else if (options.staged) {
+      diffRangeArgs = ['--cached'];
+    } else {
+      diffRangeArgs = ['HEAD'];
     }
+
+    // 3. Get numstat summary (additions, deletions, path)
+    const numstatOutput = await this.runGit(['diff', '--numstat', ...diffRangeArgs]);
+    const numstatMap = this.parseNumstat(numstatOutput);
+
+    // 4. Get full unified diff patch
+    const rawDiff = await this.runGit(['diff', ...diffRangeArgs]);
+    const patchesByFile = this.splitPatches(rawDiff);
+
+    // 5. Build structured DiffFile list
+    const allPaths = Array.from(new Set([...numstatMap.keys(), ...patchesByFile.keys()]));
+    const files: DiffFile[] = allPaths.map((filePath) => {
+      const numstat = numstatMap.get(filePath) || { additions: 0, deletions: 0 };
+      const patch = patchesByFile.get(filePath) || '';
+
+      let status: DiffFile['status'] = 'modified';
+      if (patch.includes('new file mode')) {
+        status = 'added';
+      } else if (patch.includes('deleted file mode')) {
+        status = 'deleted';
+      }
+
+      return {
+        path: filePath.replace(/\\/g, '/'),
+        status,
+        additions: numstat.additions,
+        deletions: numstat.deletions,
+        patch,
+      };
+    });
+
+    return files;
+  }
+
+  /**
+   * Parse git diff --numstat output:
+   * <additions>\t<deletions>\t<file>
+   */
+  public parseNumstat(output: string): Map<string, { additions: number; deletions: number }> {
+    const map = new Map<string, { additions: number; deletions: number }>();
+    const lines = output.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      const parts = trimmed.split(/\s+/);
+      if (parts.length >= 3) {
+        const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10) || 0;
+        const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10) || 0;
+        const filePath = parts.slice(2).join(' ').replace(/\\/g, '/');
+        map.set(filePath, { additions, deletions });
+      }
+    }
+
+    return map;
   }
 
   /**
