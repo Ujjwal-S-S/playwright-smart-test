@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const AIConfigSchema = z.object({
   provider: z.enum(['gemini', 'openai']).default('gemini'),
   apiKey: z.string().optional(),
-  model: z.string().default('gemini-2.5-flash'),
+  model: z.string().default('gemini-3.8-flash'),
   temperature: z.number().min(0).max(1).default(0.2),
 });
 
@@ -41,7 +41,7 @@ export const SmartRegressionConfigSchema = z.object({
   }),
   ai: AIConfigSchema.default({
     provider: 'gemini',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     temperature: 0.2,
   }),
 });
