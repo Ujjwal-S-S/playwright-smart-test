@@ -1,5 +1,5 @@
 {
-  "name": "smart-regression-agent",
+  "name": "@ujjwal-s-s/smart-regression-agent",
   "version": "1.0.0",
   "type": "module",
   "description": "AI-Powered Smart Regression Test Selection Agent for Playwright",
@@ -8,12 +8,26 @@
   "bin": {
     "smart-test": "./dist/cli/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ujjwal-S-S/smart-regression-agent.git"
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "playwright",
@@ -23,7 +37,7 @@
     "gemini",
     "ci-cd"
   ],
-  "author": "",
+  "author": "Ujjwal S S",
   "license": "MIT",
   "dependencies": {
     "@google/genai": "^0.2.0",
@@ -36,7 +50,6 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1",
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
