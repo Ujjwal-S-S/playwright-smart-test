@@ -1,0 +1,35 @@
+{
+  "testDir": "examples/e-commerce/tests",
+  "testMatch": ["**/*.spec.ts"],
+  "pageObjectsDir": "examples/e-commerce/src/pages",
+  "components": [
+    {
+      "name": "checkout",
+      "patterns": ["examples/e-commerce/**/checkout*"]
+    },
+    {
+      "name": "payment",
+      "patterns": ["examples/e-commerce/**/payment*"]
+    },
+    {
+      "name": "basket",
+      "patterns": ["examples/e-commerce/**/cart*", "examples/e-commerce/**/basket*"]
+    },
+    {
+      "name": "profile",
+      "patterns": ["examples/e-commerce/**/profile*"]
+    }
+  ],
+  "safetyRules": {
+    "fullRunPatterns": [
+      "playwright.config.*",
+      "package.json"
+    ],
+    "maxImpactRatioForFullRun": 0.8
+  },
+  "ai": {
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "temperature": 0.2
+  }
+}
