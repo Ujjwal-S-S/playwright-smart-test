@@ -10,9 +10,10 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsx src/cli/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
   },
   "keywords": [
     "playwright",
