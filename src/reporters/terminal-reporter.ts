@@ -1,6 +1,41 @@
 import pc from 'picocolors';
-import Table from 'cli-table3';
 import { FinalSelectionResult } from '../config/schema.js';
+
+// Lightweight table renderer — replaces cli-table3 (which pulled in the
+// deprecated @colors/colors package, flagged by Socket supply-chain checks).
+
+function padEnd(str: string, len: number): string {
+  // Strip ANSI escape codes for accurate length measurement
+  const visible = str.replace(/\x1B\[[0-9;]*m/g, '');
+  const pad = Math.max(0, len - visible.length);
+  return str + ' '.repeat(pad);
+}
+
+function renderTable(
+  headers: string[],
+  rows: string[][],
+  colWidths: number[]
+): string {
+  const sep = '─';
+  const buildDivider = (left: string, mid: string, right: string) =>
+    left + colWidths.map((w) => sep.repeat(w + 2)).join(mid) + right;
+
+  const renderRow = (cells: string[]) =>
+    '│ ' + cells.map((c, i) => padEnd(c, colWidths[i])).join(' │ ') + ' │';
+
+  const top    = buildDivider('┌', '┬', '┐');
+  const middle = buildDivider('├', '┼', '┤');
+  const bottom = buildDivider('└', '┴', '┘');
+
+  const lines = [
+    top,
+    renderRow(headers),
+    middle,
+    ...rows.map(renderRow),
+    bottom,
+  ];
+  return lines.join('\n');
+}
 
 export class TerminalReporter {
   public static report(result: FinalSelectionResult): void {
@@ -42,17 +77,22 @@ export class TerminalReporter {
     }
 
     console.log(`\n${pc.bold('🧪 Selected Playwright Regression Tests:')}`);
-    const table = new Table({
-      head: [pc.cyan('Spec File'), pc.cyan('Type'), pc.cyan('Reason')],
-      colWidths: [35, 12, 35],
-      wordWrap: true,
-    });
+
+    const headers = [pc.cyan('Spec File'), pc.cyan('Type'), pc.cyan('Reason')];
+    const colWidths = [35, 10, 35];
+    const rows: string[][] = [];
 
     if (result.selectedSpecs.length === 0) {
-      table.push([pc.gray('No tests selected'), pc.gray('-'), pc.gray('PR changes do not impact any existing tests')]);
+      rows.push([
+        pc.gray('No tests selected'),
+        pc.gray('-'),
+        pc.gray('PR changes do not impact any existing tests'),
+      ]);
     } else {
       for (const spec of result.selectedSpecs) {
-        const aiRec = result.aiAnalysis.recommendedTests.find((t) => t.specFile.endsWith(spec) || spec.endsWith(t.specFile));
+        const aiRec = result.aiAnalysis.recommendedTests.find(
+          (t) => t.specFile.endsWith(spec) || spec.endsWith(t.specFile)
+        );
         const isIndirect = aiRec ? aiRec.isIndirectImpact : false;
         const typeLabel = isIndirect ? pc.yellow('Ripple') : pc.green('Direct');
         const reason = aiRec
@@ -65,11 +105,11 @@ export class TerminalReporter {
           ? 'Smoke safety net fallback'
           : 'Impacted area';
 
-        table.push([spec, typeLabel, reason]);
+        rows.push([spec, typeLabel, reason]);
       }
     }
 
-    console.log(table.toString());
+    console.log(renderTable(headers, rows, colWidths));
 
     console.log(`\n${pc.bold('⚡ Playwright Execution Command:')}`);
     console.log(`  ${pc.green(result.playwrightCommand)}\n`);

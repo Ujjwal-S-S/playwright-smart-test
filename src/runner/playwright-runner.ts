@@ -16,10 +16,12 @@ export class PlaywrightRunner {
       const executable = parts[0] || 'npx';
       const args = parts.slice(1).map((a) => a.replace(/^"|"$/g, ''));
 
+      // shell: false avoids arbitrary shell injection and removes Socket "Shell access" flag.
+      // The command is already split into executable + args above.
       const child = spawn(executable, args, {
         cwd,
         stdio: 'inherit',
-        shell: true,
+        shell: false,
       });
 
       child.on('close', (code) => {

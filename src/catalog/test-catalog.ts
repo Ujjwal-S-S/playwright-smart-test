@@ -1,8 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
-import ts from 'typescript';
 import { SpecCatalogEntry } from '../config/schema.js';
+
+// Regex-based test/import extractor — no TypeScript compiler dependency at runtime.
+// Handles the common Playwright patterns: test(), test.describe(), it(), describe()
+// and standard ESM import declarations.
+
+const TEST_TITLE_RE = /(?:^|\n)\s*(?:test|it|describe)(?:\.(?:describe|only|skip))?\s*\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+const IMPORT_FROM_RE = /^\s*import\s+(?:.*?\s+from\s+)?['"]([^'"]+)['"]/gm;
+const TAG_RE = /@[a-zA-Z0-9_\-]+/g;
 
 export class TestCatalogIndexer {
   constructor(private cwd: string = process.cwd()) {}
@@ -70,59 +77,33 @@ export class TestCatalogIndexer {
 
   private indexSpecFile(fullPath: string, relativePath: string): SpecCatalogEntry {
     const content = fs.readFileSync(fullPath, 'utf8');
-    const sourceFile = ts.createSourceFile(
-      fullPath,
-      content,
-      ts.ScriptTarget.Latest,
-      true
-    );
 
     const testTitles: string[] = [];
-    const tags: string[] = [];
+    let m: RegExpExecArray | null;
+
+    TEST_TITLE_RE.lastIndex = 0;
+    while ((m = TEST_TITLE_RE.exec(content)) !== null) {
+      const title = m[2].replace(/\\(['"`\\])/g, '$1');
+      if (title && !testTitles.includes(title)) {
+        testTitles.push(title);
+      }
+    }
+
     const importedModules: string[] = [];
-
-    const visit = (node: ts.Node) => {
-      if (ts.isImportDeclaration(node)) {
-        if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-          importedModules.push(node.moduleSpecifier.text);
-        }
+    IMPORT_FROM_RE.lastIndex = 0;
+    while ((m = IMPORT_FROM_RE.exec(content)) !== null) {
+      const mod = m[1];
+      if (mod && !importedModules.includes(mod)) {
+        importedModules.push(mod);
       }
+    }
 
-      if (ts.isCallExpression(node)) {
-        const expr = node.expression;
-        let callName = '';
-
-        if (ts.isIdentifier(expr)) {
-          callName = expr.text;
-        } else if (ts.isPropertyAccessExpression(expr)) {
-          callName = `${expr.expression.getText(sourceFile)}.${expr.name.text}`;
-        }
-
-        if (
-          callName === 'test' ||
-          callName === 'test.describe' ||
-          callName === 'test.only' ||
-          callName === 'it' ||
-          callName === 'describe'
-        ) {
-          const firstArg = node.arguments[0];
-          if (firstArg && (ts.isStringLiteral(firstArg) || ts.isNoSubstitutionTemplateLiteral(firstArg))) {
-            testTitles.push(firstArg.text);
-          }
-        }
-      }
-
-      ts.forEachChild(node, visit);
-    };
-
-    visit(sourceFile);
-
-    const tagMatches = content.match(/@[a-zA-Z0-9_\-]+/g);
-    if (tagMatches) {
-      for (const t of tagMatches) {
-        if (!tags.includes(t)) {
-          tags.push(t);
-        }
+    const tags: string[] = [];
+    TAG_RE.lastIndex = 0;
+    while ((m = TAG_RE.exec(content)) !== null) {
+      const tag = m[0];
+      if (!tags.includes(tag)) {
+        tags.push(tag);
       }
     }
 
