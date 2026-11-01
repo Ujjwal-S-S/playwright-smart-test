@@ -26,8 +26,8 @@ export class TestSelector {
       changedFiles.filter((f) => f.status === 'deleted').map((f) => f.path.replace(/\\/g, '/'))
     );
 
-    // Guardrail 1: Docs & Asset Fast-Path
-    if (this.isDocsAndAssetsOnly(changedFiles)) {
+    // Guardrail 1a: Zero Modified Files
+    if (changedFiles.length === 0) {
       return {
         isFullRegression: false,
         fullRegressionReason: undefined,
@@ -37,8 +37,39 @@ export class TestSelector {
         aiAnalysis: {
           changedComponents: [],
           impactedComponents: [],
-          directReason: 'Only documentation, assets, or markdown files modified.',
-          rippleEffectReason: 'No regression test execution required.',
+          directReason: 'Zero modified files detected against the base branch.',
+          rippleEffectReason: 'Working tree is clean and identical to the target branch. No regression test execution required.',
+          riskScore: 'LOW',
+          requiresFullRegression: false,
+          confidenceScore: 'HIGH',
+          recommendedTests: [],
+        },
+        selectedSpecs: [],
+        directlyModifiedSpecs: [],
+        componentRuleSpecs: [],
+        aiRecommendedSpecs: [],
+        playwrightCommand: 'npx playwright test',
+      };
+    }
+
+    // Guardrail 1b: Docs & Asset Fast-Path
+    if (this.isDocsAndAssetsOnly(changedFiles)) {
+      const fileNames = changedFiles.map((f) => path.basename(f.path));
+      const preview =
+        fileNames.slice(0, 4).join(', ') +
+        (fileNames.length > 4 ? ` (+${fileNames.length - 4} more)` : '');
+      return {
+        isFullRegression: false,
+        fullRegressionReason: undefined,
+        changedFiles,
+        changedComponents: [],
+        impactedComponents: [],
+        aiAnalysis: {
+          changedComponents: [],
+          impactedComponents: [],
+          directReason: `Verified documentation/non-code changes only (${preview}). Static code analysis confirmed zero application source code, components, or domain logic were altered.`,
+          rippleEffectReason:
+            'Documentation, asset, or metadata changes do not alter runtime UI or application workflows. Safe to skip regression suite.',
           riskScore: 'LOW',
           requiresFullRegression: false,
           confidenceScore: 'HIGH',
@@ -168,7 +199,7 @@ export class TestSelector {
   }
 
   private isDocsAndAssetsOnly(changedFiles: DiffFile[]): boolean {
-    if (changedFiles.length === 0) return true;
+    if (changedFiles.length === 0) return false;
     const docsPatterns = this.config.safetyRules?.docsOnlyPatterns || [
       '**/*.md',
       'docs/**',

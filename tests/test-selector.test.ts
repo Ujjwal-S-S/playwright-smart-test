@@ -97,6 +97,15 @@ describe('TestSelector', () => {
     expect(result.isFullRegression).toBe(false);
     expect(result.selectedSpecs.length).toBe(0);
     expect(result.aiAnalysis.directReason).toContain('documentation');
+    expect(result.aiAnalysis.directReason).toContain('README.md');
+  });
+
+  it('handles empty diff gracefully with clear zero modified files rationale', async () => {
+    const selector = new TestSelector(config, exampleCwd);
+    const result = await selector.selectTests([], catalog);
+    expect(result.isFullRegression).toBe(false);
+    expect(result.selectedSpecs.length).toBe(0);
+    expect(result.aiAnalysis.directReason).toContain('Zero modified files detected');
   });
 
   it('guarantees directly modified test specs are included', async () => {
