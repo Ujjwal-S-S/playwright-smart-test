@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('playwright-smart-test')
   .description('AI-Powered Smart Regression Test Selection Agent for Playwright')
-  .version('1.0.6');
+  .version('1.0.7');
 
 async function executeAnalysis(options: {
   base?: string;
