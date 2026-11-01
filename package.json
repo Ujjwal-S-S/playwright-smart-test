@@ -6,8 +6,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "playwright-smart-test": "./dist/cli/index.js",
-    "smart-test": "./dist/cli/index.js"
+    "playwright-smart-test": "dist/cli/index.js"
   },
   "files": [
     "dist",
@@ -19,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ujjwal-S-S/smart-regression-agent.git"
+    "url": "git+https://github.com/Ujjwal-S-S/playwright-smart-test.git"
   },
   "scripts": {
     "build": "tsc",

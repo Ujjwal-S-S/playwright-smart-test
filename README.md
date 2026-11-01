@@ -159,8 +159,6 @@ Or create `smart-regression.config.json` in your repository root:
 | `playwright-smart-test comment` | Analyzes diff, generates GitHub Flavored Markdown, and outputs PR report. |
 | `playwright-smart-test init` | Generates a starter `smart-regression.config.json` configuration file. |
 
-> `smart-test` is also supported as an alias command: `npx smart-test run`.
-
 ### CLI Options
 * `-b, --base <ref>`: Target Git branch or commit to diff against (e.g. `origin/main` or `HEAD~1`).
 * `-h, --head <ref>`: Head Git commit/branch (default: working directory / `HEAD`).

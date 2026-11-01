@@ -1,4 +1,4 @@
-name: CI & GitHub Packages Publish
+name: CI & NPM Publish
 
 on:
   push:
@@ -43,25 +43,23 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-  publish-github-package:
-    name: Publish to GitHub Packages
+  publish-npm:
+    name: Publish to NPM Registry
     needs: test-and-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js for GitHub Packages
+      - name: Setup Node.js for NPM
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@ujjwal-s-s'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install Dependencies
         run: npm ci
@@ -71,6 +69,6 @@ jobs:
 
       - name: Publish Package
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          npm publish || echo "Package version already exists or publish failed gracefully"
+          npm publish --access public || echo "Package version already exists or publish failed gracefully"
