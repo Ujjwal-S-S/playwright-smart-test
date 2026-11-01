@@ -82,11 +82,13 @@ export class GitDiffAnalyzer {
       try {
         await this.runGit(['rev-parse', '--verify', safeBase]);
       } catch {
-        const remoteRef = this.parseRemoteRef(safeBase);
-        if (remoteRef) {
-          const { remote, branch } = remoteRef;
+        const remoteRef = this.parseRemoteRef(safeBase) ?? { remote: 'origin', branch: safeBase };
+        const { remote, branch } = remoteRef;
+        try {
+          await this.runGit(['fetch', '--depth=100', remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`]);
+        } catch {
           try {
-            await this.runGit(['fetch', '--depth=100', remote, `${branch}:refs/remotes/${remote}/${branch}`]);
+            await this.runGit(['fetch', '--depth=100', remote, `+${branch}:refs/remotes/${remote}/${branch}`]);
           } catch {
             // Ignore fetch failure and proceed with available refs.
           }
@@ -108,12 +110,14 @@ export class GitDiffAnalyzer {
     let numstatOutput: string;
     try {
       numstatOutput = await this.runGit(['diff', '--numstat', ...diffRangeArgs]);
-    } catch {
+    } catch (diffErr) {
       const fallbackArgs = safeBase ? [safeBase] : ['HEAD'];
       try {
         numstatOutput = await this.runGit(['diff', '--numstat', ...fallbackArgs]);
         diffRangeArgs = fallbackArgs;
-      } catch {
+      } catch (fallbackErr) {
+        const diffMessage = diffErr instanceof Error ? diffErr.message : String(diffErr);
+        console.warn(`[playwright-smart-test] Warning: git diff failed for [${diffRangeArgs.join(' ')}] and fallback [${fallbackArgs.join(' ')}]: ${diffMessage}`);
         numstatOutput = '';
       }
     }

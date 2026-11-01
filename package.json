@@ -1,6 +1,6 @@
 {
   "name": "playwright-smart-test",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "type": "module",
   "description": "AI-Powered Smart Regression Test Selection Agent for Playwright",
   "main": "dist/index.js",

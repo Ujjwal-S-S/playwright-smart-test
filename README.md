@@ -189,83 +189,103 @@ Generate a starter configuration with `npx playwright-smart-test init` or create
 
 ## 🔌 GitHub Actions CI/CD Integration
 
-Add this step to your Pull Request workflow (`.github/workflows/regression.yml`):
+Add this step to your Pull Request workflow (`.github/workflows/smart-regression.yml`):
 
 ```yaml
 name: Playwright Smart Regression
 
 on:
   pull_request:
-    branches: [main, master]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
 
 jobs:
-  test:
+  smart-regression:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write        # Required for posting/updating PR comments
+      pull-requests: write # Required for PR comment metadata
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Full history needed for git diff
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          fetch-depth: 0   # Full history needed for git diff
+
+      - name: Fetch target base branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
-      - name: Run Smart Regression Analysis
-        id: smart-regression
+      - name: Run AI Smart Regression Selection & Targeted E2E Tests
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx playwright-smart-test analyze --base "origin/${{ github.base_ref }}" --output pr-report.md
-          npx playwright-smart-test run --base "origin/${{ github.base_ref }}"
-
-      - name: Post PR Comment
-        if: always()
-        uses: thollander/actions-comment-pull-request@v2
-        with:
-          filePath: pr-report.md
-          comment_tag: smart-regression-report
+          npx playwright-smart-test run --comment --base "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}"
 ```
 
 ---
 
 ## 📊 Sample PR Impact Report
 
-When running `playwright-smart-test comment` or saving with `--output`, the agent produces clean GitHub Flavored Markdown:
+When running `playwright-smart-test run --comment` or `playwright-smart-test comment`, the agent automatically posts an interactive analysis report directly to the GitHub Pull Request and GitHub Actions Step Summary:
 
 ```markdown
 ## 🤖 Playwright Smart Regression Selection Report
 
-**Risk Level:** 🟠 **HIGH**
+### 📊 Impact & Risk Assessment
 
-| Scope | Identified Areas |
+| Metric | Assessment |
 | :--- | :--- |
+| **Overall Risk** | 🟠 **HIGH** |
+| **Analysis Confidence** | 🟢 **HIGH** |
 | **Changed Components** | `checkout`, `payment` |
 | **Potentially Impacted Areas** | `cart`, `order-summary` |
 
 ### 🧠 AI Semantic Rationale
+
 - **Direct Impact:** Modified voucher code calculation logic in CheckoutPage.
 - **Ripple Effects:** Discount changes propagate into final payment charge payload.
+
+<details>
+<summary><b>📁 Modified Files Analyzed (3)</b></summary>
+
+| File | Status | Diff Lines |
+| :--- | :---: | :---: |
+| `src/components/Checkout.tsx` | 🟡 Modified | +24 / -8 |
+| `src/components/Payment.tsx` | 🟡 Modified | +12 / -3 |
+| `src/types.ts` | 🟡 Modified | +2 / -0 |
+
+</details>
 
 ### 🧪 Selected Regression Tests (3)
 
 | Spec File | Selection Type | Rationale |
 | :--- | :---: | :--- |
-| `tests/checkout.spec.ts` | 🟢 Direct | Directly touches changed component 'checkout'. |
-| `tests/payment.spec.ts` | 🟡 Ripple | Indirectly impacted by ripple effects on domain 'payment'. |
-| `tests/cart.spec.ts` | 🟡 Ripple | Indirectly impacted by ripple effects on domain 'cart'. |
+| `playwright/e2e/tests/checkout.spec.ts` | 🟢 Direct | Directly touches changed component 'checkout'. |
+| `playwright/e2e/tests/payment.spec.ts` | 🟡 Ripple | Indirectly impacted by ripple effects on domain 'payment'. |
+| `playwright/e2e/tests/cart.spec.ts` | 🟡 Ripple | Indirectly impacted by ripple effects on domain 'cart'. |
 
 ### ⚡ Playwright Execution Command
+
 ```bash
-npx playwright test "tests/checkout.spec.ts" "tests/payment.spec.ts" "tests/cart.spec.ts"
+npx playwright test "playwright/e2e/tests/checkout.spec.ts" "playwright/e2e/tests/payment.spec.ts" "playwright/e2e/tests/cart.spec.ts"
 ```
 ```
 

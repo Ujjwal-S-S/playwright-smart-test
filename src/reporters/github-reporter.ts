@@ -3,6 +3,7 @@ import { FinalSelectionResult } from '../config/schema.js';
 export class GitHubReporter {
   public static generateMarkdown(result: FinalSelectionResult): string {
     const riskBadge = this.getRiskBadge(result.aiAnalysis.riskScore);
+    const confidenceBadge = this.getConfidenceBadge(result.aiAnalysis.confidenceScore);
 
     const changedBadges = result.changedComponents.length > 0
       ? result.changedComponents.map((c) => `\`${c}\``).join(', ')
@@ -13,7 +14,6 @@ export class GitHubReporter {
       : '_None_';
 
     let markdown = `## 🤖 Playwright Smart Regression Selection Report\n\n`;
-    markdown += `**Risk Level:** ${riskBadge}\n\n`;
 
     if (result.isFullRegression) {
       markdown += `> [!WARNING]\n`;
@@ -23,17 +23,38 @@ export class GitHubReporter {
       markdown += `> **Smoke Safety Net Activated**: ${result.smokeFallbackReason}\n\n`;
     }
 
-    markdown += `| Scope | Identified Areas |\n`;
+    markdown += `### 📊 Impact & Risk Assessment\n\n`;
+    markdown += `| Metric | Assessment |\n`;
     markdown += `| :--- | :--- |\n`;
+    markdown += `| **Overall Risk** | ${riskBadge} |\n`;
+    markdown += `| **Analysis Confidence** | ${confidenceBadge} |\n`;
     markdown += `| **Changed Components** | ${changedBadges} |\n`;
     markdown += `| **Potentially Impacted Areas** | ${impactedBadges} |\n\n`;
 
-    markdown += `### 🧠 AI Semantic Rationale\n`;
+    markdown += `### 🧠 AI Semantic Rationale\n\n`;
     markdown += `- **Direct Impact:** ${result.aiAnalysis.directReason}\n`;
     if (result.aiAnalysis.rippleEffectReason) {
       markdown += `- **Ripple Effects:** ${result.aiAnalysis.rippleEffectReason}\n`;
     }
     markdown += `\n`;
+
+    if (result.changedFiles && result.changedFiles.length > 0) {
+      markdown += `<details>\n<summary><b>📁 Modified Files Analyzed (${result.changedFiles.length})</b></summary>\n\n`;
+      markdown += `| File | Status | Diff Lines |\n`;
+      markdown += `| :--- | :---: | :---: |\n`;
+      for (const file of result.changedFiles) {
+        const statusBadge =
+          file.status === 'added'
+            ? '🟢 Added'
+            : file.status === 'deleted'
+            ? '🔴 Deleted'
+            : file.status === 'renamed'
+            ? '🔵 Renamed'
+            : '🟡 Modified';
+        markdown += `| \`${file.path}\` | ${statusBadge} | +${file.additions} / -${file.deletions} |\n`;
+      }
+      markdown += `\n</details>\n\n`;
+    }
 
     markdown += `### 🧪 Selected Regression Tests (${result.selectedSpecs.length})\n\n`;
 
@@ -64,7 +85,7 @@ export class GitHubReporter {
       markdown += `\n`;
     }
 
-    markdown += `### ⚡ Playwright Execution Command\n`;
+    markdown += `### ⚡ Playwright Execution Command\n\n`;
     if (result.selectedSpecs.length === 0 && !result.isFullRegression) {
       markdown += `_No tests executed (0 impacted tests identified)._\n\n`;
     } else {
@@ -86,6 +107,18 @@ export class GitHubReporter {
       case 'LOW':
       default:
         return '🟢 **LOW**';
+    }
+  }
+
+  private static getConfidenceBadge(confidence?: string): string {
+    switch (confidence) {
+      case 'HIGH':
+        return '🟢 **HIGH**';
+      case 'LOW':
+        return '🔴 **LOW**';
+      case 'MEDIUM':
+      default:
+        return '🟡 **MEDIUM**';
     }
   }
 }
