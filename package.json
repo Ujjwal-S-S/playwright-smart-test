@@ -67,7 +67,6 @@
     "vitest": "^5.0.5"
   },
   "overrides": {
-    "minimatch": "^11.0.3",
-    "safe-buffer": "npm:@socketregistry/safe-buffer@^1.0.9"
+    "minimatch": "^11.0.3"
   }
 }

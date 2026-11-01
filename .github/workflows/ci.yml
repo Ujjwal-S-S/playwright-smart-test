@@ -46,7 +46,6 @@ jobs:
   # ── Supply Chain Security ──────────────────────────────────────────────────
   # Note: Socket.dev supply chain scans run automatically on every PR and push
   # via the Socket GitHub App — no CI action needed for that.
-  # This job handles the remaining free checks:
 
   supply-chain:
     name: Supply Chain Security
@@ -58,16 +57,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      # npm audit — catches known CVEs from the npm advisory database (free, built-in)
+      # npm audit reads package-lock.json directly — no npm install needed.
+      # Catches known CVEs from the npm advisory database (free, built-in).
       - name: npm audit
         run: npm audit --audit-level=moderate
 
@@ -89,7 +80,7 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: moderate
-          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
+          allow-licenses: MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, BlueOak-1.0.0, Python-2.0, CC0-1.0, Unlicense
 
   # ── Publish ────────────────────────────────────────────────────────────────
   publish-npm:
