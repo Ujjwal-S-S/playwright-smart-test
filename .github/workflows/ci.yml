@@ -43,9 +43,49 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
+  # ── Supply Chain Security ──────────────────────────────────────────────────
+  # Note: Socket.dev supply chain scans run automatically on every PR and push
+  # via the Socket GitHub App — no CI action needed for that.
+
+  supply-chain:
+    name: Supply Chain Security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # npm audit reads package-lock.json directly — no npm install needed.
+      # Catches known CVEs from the npm advisory database (free, built-in).
+      - name: npm audit
+        run: npm audit --audit-level=moderate
+
+  # GitHub Dependency Review — PRs only. Blocks merging if a PR introduces a
+  # newly vulnerable or unlicensed dependency. Free for all public repos.
+  dependency-review:
+    name: Dependency Review (PR only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          allow-licenses: MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, BlueOak-1.0.0, Python-2.0, CC0-1.0, Unlicense
+
+  # ── Publish ────────────────────────────────────────────────────────────────
   publish-npm:
     name: Publish to NPM Registry
-    needs: test-and-build
+    needs: [test-and-build, supply-chain]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
