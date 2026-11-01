@@ -1,11 +1,12 @@
 {
-  "name": "@ujjwal-s-s/smart-regression-agent",
+  "name": "playwright-smart-test",
   "version": "1.0.1",
   "type": "module",
   "description": "AI-Powered Smart Regression Test Selection Agent for Playwright",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
+    "playwright-smart-test": "./dist/cli/index.js",
     "smart-test": "./dist/cli/index.js"
   },
   "files": [
@@ -14,8 +15,7 @@
     "LICENSE"
   ],
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "access": "restricted"
+    "access": "public"
   },
   "repository": {
     "type": "git",
@@ -46,7 +46,6 @@
     "dotenv": "^16.4.7",
     "glob": "^14.0.3",
     "picocolors": "^1.1.1",
-    "ts-morph": "^10.0.1",
     "zod": "^4.6.7"
   },
   "bundleDependencies": [
@@ -56,7 +55,6 @@
     "dotenv",
     "glob",
     "picocolors",
-    "ts-morph",
     "zod"
   ],
   "devDependencies": {

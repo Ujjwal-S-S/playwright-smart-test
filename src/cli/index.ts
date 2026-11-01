@@ -14,9 +14,9 @@ import { PlaywrightRunner } from '../runner/playwright-runner.js';
 const program = new Command();
 
 program
-  .name('smart-test')
+  .name('playwright-smart-test')
   .description('AI-Powered Smart Regression Test Selection Agent for Playwright')
-  .version('1.0.0');
+  .version('1.0.1');
 
 async function executeAnalysis(options: {
   base?: string;
@@ -30,7 +30,6 @@ async function executeAnalysis(options: {
 
   console.log(pc.cyan(`\n🔍 Scanning repository at ${cwd}...`));
 
-  // 1. Git diff
   const diffAnalyzer = new GitDiffAnalyzer(cwd);
   const changedFiles = await diffAnalyzer.getChangedFiles({
     base: options.base,
@@ -40,12 +39,10 @@ async function executeAnalysis(options: {
 
   console.log(`Detected ${pc.yellow(changedFiles.length.toString())} modified files.`);
 
-  // 2. Test Catalog
   const catalogIndexer = new TestCatalogIndexer(cwd);
   const catalog = await catalogIndexer.scanTestFiles(config.testDir, config.testMatch);
   console.log(`Indexed ${pc.yellow(catalog.length.toString())} Playwright spec files in '${config.testDir}'.`);
 
-  // 3. Selection (AI + AST)
   const selector = new TestSelector(config, cwd);
   const result = await selector.selectTests(changedFiles, catalog);
 
@@ -152,12 +149,15 @@ program
         { name: 'basket', patterns: ['src/**/basket*', 'src/**/cart*'] }
       ],
       safetyRules: {
-        fullRunPatterns: ['playwright.config.*', 'package.json'],
-        maxImpactRatioForFullRun: 0.7
+        maxChangedDomainsForFullRun: 8,
+        maxImpactRatioForFullRun: 0.7,
+        smokeTag: '@smoke',
+        smokeSpecPattern: '**/*smoke*.spec.ts',
+        fullRunPatterns: []
       },
       ai: {
         provider: 'gemini',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         temperature: 0.2
       }
     };

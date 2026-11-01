@@ -82,14 +82,12 @@ export class TestCatalogIndexer {
     const importedModules: string[] = [];
 
     const visit = (node: ts.Node) => {
-      // 1. Extract import statements
       if (ts.isImportDeclaration(node)) {
         if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
           importedModules.push(node.moduleSpecifier.text);
         }
       }
 
-      // 2. Extract Playwright test('...', ...) and test.describe('...', ...) calls
       if (ts.isCallExpression(node)) {
         const expr = node.expression;
         let callName = '';
@@ -119,7 +117,6 @@ export class TestCatalogIndexer {
 
     visit(sourceFile);
 
-    // Extract tags like @checkout, @payment from code comments and titles
     const tagMatches = content.match(/@[a-zA-Z0-9_\-]+/g);
     if (tagMatches) {
       for (const t of tagMatches) {

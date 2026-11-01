@@ -27,10 +27,8 @@ export class GitDiffAnalyzer {
   }
 
   public async getChangedFiles(options: DiffOptions = {}): Promise<DiffFile[]> {
-    // 1. Verify repository
     await this.runGit(['rev-parse', '--is-inside-work-tree']);
 
-    // 2. Determine diff arguments
     let diffRangeArgs: string[];
     if (options.base && options.head) {
       diffRangeArgs = [`${options.base}...${options.head}`];
@@ -42,15 +40,12 @@ export class GitDiffAnalyzer {
       diffRangeArgs = ['HEAD'];
     }
 
-    // 3. Get numstat summary (additions, deletions, path)
     const numstatOutput = await this.runGit(['diff', '--numstat', ...diffRangeArgs]);
     const numstatMap = this.parseNumstat(numstatOutput);
 
-    // 4. Get full unified diff patch
     const rawDiff = await this.runGit(['diff', ...diffRangeArgs]);
     const patchesByFile = this.splitPatches(rawDiff);
 
-    // 5. Build structured DiffFile list
     const allPaths = Array.from(new Set([...numstatMap.keys(), ...patchesByFile.keys()]));
     const files: DiffFile[] = allPaths.map((filePath) => {
       const numstat = numstatMap.get(filePath) || { additions: 0, deletions: 0 };
@@ -61,6 +56,8 @@ export class GitDiffAnalyzer {
         status = 'added';
       } else if (patch.includes('deleted file mode')) {
         status = 'deleted';
+      } else if (patch.includes('rename from ') || patch.includes('similarity index')) {
+        status = 'renamed';
       }
 
       return {

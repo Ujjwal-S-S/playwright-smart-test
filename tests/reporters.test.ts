@@ -22,7 +22,8 @@ describe('GitHubReporter', () => {
         ],
       },
       selectedSpecs: ['tests/checkout.spec.ts', 'tests/payment.spec.ts', 'tests/cart.spec.ts'],
-      astDirectSpecs: ['tests/checkout.spec.ts'],
+      directlyModifiedSpecs: ['tests/checkout.spec.ts'],
+      componentRuleSpecs: [],
       aiRecommendedSpecs: ['tests/checkout.spec.ts', 'tests/payment.spec.ts', 'tests/cart.spec.ts'],
       playwrightCommand: 'npx playwright test "tests/checkout.spec.ts" "tests/payment.spec.ts" "tests/cart.spec.ts"',
     };
