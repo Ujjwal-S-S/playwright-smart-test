@@ -158,13 +158,13 @@ Generate a starter configuration with `npx playwright-smart-test init` or create
   },
   "ai": {
     "provider": "gemini",
-    "model": "gemini-3.8-flash",
+    "model": "gemini-3.5-flash-lite",
     "temperature": 0.2
   }
 }
 ```
 
-> **Model Flexibility**: You can configure any Gemini model (e.g. `gemini-3.8-flash`, `gemini-2.5-flash`, `gemini-1.5-pro`) or override it dynamically via the `GEMINI_MODEL` environment variable.
+> **Model Flexibility**: You can configure any Gemini model (e.g. `gemini-3.5-flash-lite`, `gemini-2.5-flash`, `gemini-1.5-flash`, `gemini-1.5-pro`) or override it dynamically via the `GEMINI_MODEL` environment variable.
 
 ---
 
@@ -178,8 +178,11 @@ Generate a starter configuration with `npx playwright-smart-test init` or create
 | `playwright-smart-test init` | Generates a starter `playwright-smart-test.config.json` configuration file. |
 
 ### CLI Options
-* `-b, --base <ref>`: Target Git branch or commit to diff against (e.g. `origin/main` or `HEAD~1`).
-* `-h, --head <ref>`: Head Git commit/branch (default: working directory / `HEAD`).
+* `-b, --base <ref>`: Target Git branch, commit, or tag to diff against. Supports remote references (`origin/main`), local branches (`main`), commit SHAs, and ancestor specifiers (`HEAD~1`, `origin/main~2`, `HEAD^`).
+* `-h, --head <ref>`: Head Git commit/branch (default: `HEAD` or uncommitted working directory).
+* `--fail-on-empty`: Exit with status code 1 if 0 modified files are detected against the base ref (safeguard against empty diffs or un-fetched base refs in CI).
+* `--comment`: Automatically post or update an interactive PR comment on GitHub and append the report to `$GITHUB_STEP_SUMMARY`.
+* `--cwd <dir>`: Target working directory (defaults to `process.cwd()`).
 * `--staged`: Analyze only staged git changes.
 * `-c, --config <path>`: Path to custom configuration file.
 * `-o, --output <path>`: Save report to `.md` or `.json` (e.g. `--output report.md`).
@@ -237,8 +240,15 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx playwright-smart-test run --comment --base "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}"
+          npx playwright-smart-test run --comment --fail-on-empty --base "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}"
 ```
+
+---
+
+> [!TIP]
+> Always execute with `npx playwright-smart-test` (or `npm exec -- playwright-smart-test`) rather than bare `npm exec`. In `npm 10`, flags passed after binary subcommands without the `--` separator may be intercepted by `npm exec` rather than reaching the CLI agent.
+> 
+> Also ensure `actions/checkout` specifies `fetch-depth: 0` so full git history is available to calculate diffs against the base branch.
 
 ---
 

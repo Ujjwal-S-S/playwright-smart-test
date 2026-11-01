@@ -51,4 +51,15 @@ index 2345678..9abcdef0 100644
     expect(result.get('src/pages/cart.page.ts')).toEqual({ additions: 5, deletions: 0 });
     expect(result.get('assets/logo.png')).toEqual({ additions: 0, deletions: 0 });
   });
+
+  it('validates revision specifiers including HEAD~1 and HEAD^', async () => {
+    const analyzer = new GitDiffAnalyzer();
+    // Testing rejection of dangerous / invalid refs
+    await expect(analyzer.getChangedFiles({ base: 'invalid ref with spaces' })).rejects.toThrow(
+      /Invalid base git reference/
+    );
+    await expect(analyzer.getChangedFiles({ base: '-flag-injection' })).rejects.toThrow(
+      /Invalid base git reference/
+    );
+  });
 });

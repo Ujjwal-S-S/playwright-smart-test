@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import pc from 'picocolors';
 import { DiffFile } from '../config/schema.js';
 
 const execFileAsync = promisify(execFile);
@@ -44,7 +45,7 @@ export class GitDiffAnalyzer {
       return null;
     }
 
-    const validPattern = /^(?:HEAD|[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*|refs\/(?:heads|remotes|tags)\/[A-Za-z0-9._/-]+)$/;
+    const validPattern = /^(?:HEAD|[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*|refs\/(?:heads|remotes|tags)\/[A-Za-z0-9._/-]+)(?:~[0-9]+|\^[0-9]*)*$/;
     if (!validPattern.test(safeRef)) {
       return null;
     }
@@ -75,6 +76,13 @@ export class GitDiffAnalyzer {
   public async getChangedFiles(options: DiffOptions = {}): Promise<DiffFile[]> {
     await this.runGit(['rev-parse', '--is-inside-work-tree']);
 
+    if (options.base && !this.sanitizeGitRef(options.base)) {
+      throw new Error(`Invalid base git reference '${options.base}'. Reference contains disallowed characters or formatting.`);
+    }
+    if (options.head && !this.sanitizeGitRef(options.head)) {
+      throw new Error(`Invalid head git reference '${options.head}'. Reference contains disallowed characters or formatting.`);
+    }
+
     const safeBase = this.sanitizeGitRef(options.base);
     const safeHead = this.sanitizeGitRef(options.head) ?? 'HEAD';
 
@@ -84,11 +92,12 @@ export class GitDiffAnalyzer {
       } catch {
         const remoteRef = this.parseRemoteRef(safeBase) ?? { remote: 'origin', branch: safeBase };
         const { remote, branch } = remoteRef;
+        const fetchBranch = branch.replace(/[~^].*$/, '');
         try {
-          await this.runGit(['fetch', '--depth=100', remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`]);
+          await this.runGit(['fetch', '--depth=100', remote, `+refs/heads/${fetchBranch}:refs/remotes/${remote}/${fetchBranch}`]);
         } catch {
           try {
-            await this.runGit(['fetch', '--depth=100', remote, `+${branch}:refs/remotes/${remote}/${branch}`]);
+            await this.runGit(['fetch', '--depth=100', remote, `+${fetchBranch}:refs/remotes/${remote}/${fetchBranch}`]);
           } catch {
             // Ignore fetch failure and proceed with available refs.
           }
@@ -107,6 +116,8 @@ export class GitDiffAnalyzer {
       diffRangeArgs = ['HEAD'];
     }
 
+    console.log(pc.dim(`[playwright-smart-test] Comparing git diff using: git diff --numstat ${diffRangeArgs.join(' ')}`));
+
     let numstatOutput: string;
     try {
       numstatOutput = await this.runGit(['diff', '--numstat', ...diffRangeArgs]);
@@ -117,6 +128,9 @@ export class GitDiffAnalyzer {
         diffRangeArgs = fallbackArgs;
       } catch (fallbackErr) {
         const diffMessage = diffErr instanceof Error ? diffErr.message : String(diffErr);
+        if (safeBase) {
+          throw new Error(`Git diff failed for base '${safeBase}': ${diffMessage}`);
+        }
         console.warn(`[playwright-smart-test] Warning: git diff failed for [${diffRangeArgs.join(' ')}] and fallback [${fallbackArgs.join(' ')}]: ${diffMessage}`);
         numstatOutput = '';
       }
@@ -153,6 +167,28 @@ export class GitDiffAnalyzer {
         patch,
       };
     });
+
+    // Also include untracked files when diffing locally against working tree without base
+    if (!safeBase && !options.staged) {
+      try {
+        const untrackedOutput = await this.runGit(['ls-files', '--others', '--exclude-standard']);
+        const untrackedFiles = untrackedOutput.split('\n').map((l) => l.trim()).filter(Boolean);
+        for (const filePath of untrackedFiles) {
+          const normalized = filePath.replace(/\\/g, '/');
+          if (!allPaths.includes(normalized)) {
+            files.push({
+              path: normalized,
+              status: 'added',
+              additions: 1,
+              deletions: 0,
+              patch: '',
+            });
+          }
+        }
+      } catch {
+        // ls-files optional fallback
+      }
+    }
 
     return files;
   }

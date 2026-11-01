@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('playwright-smart-test')
   .description('AI-Powered Smart Regression Test Selection Agent for Playwright')
-  .version('1.0.9');
+  .version('1.0.10');
 
 async function executeAnalysis(options: {
   base?: string;
@@ -25,6 +25,7 @@ async function executeAnalysis(options: {
   staged?: boolean;
   config?: string;
   cwd?: string;
+  failOnEmpty?: boolean;
 }) {
   const cwd = options.cwd ? path.resolve(options.cwd) : process.cwd();
   const config = loadConfig(cwd, options.config);
@@ -39,6 +40,21 @@ async function executeAnalysis(options: {
   });
 
   console.log(`Detected ${pc.yellow(changedFiles.length.toString())} modified files.`);
+
+  if (changedFiles.length === 0) {
+    if (options.base) {
+      console.warn(
+        pc.yellow(
+          `⚠️  [playwright-smart-test] Warning: 0 modified files detected against base '${options.base}'. Verify that '${options.base}' exists and has distinct commits relative to HEAD.`
+        )
+      );
+    }
+    if (options.failOnEmpty) {
+      throw new Error(
+        `0 modified files detected against base '${options.base || 'HEAD'}'. Aborting because --fail-on-empty was specified.`
+      );
+    }
+  }
 
   const catalogIndexer = new TestCatalogIndexer(cwd);
   const catalog = await catalogIndexer.scanTestFiles(config.testDir, config.testMatch);
@@ -59,6 +75,7 @@ program
   .option('-c, --config <path>', 'Path to custom config file')
   .option('-o, --output <path>', 'Save analysis result to file (.json or .md)')
   .option('--cwd <dir>', 'Working directory', process.cwd())
+  .option('--fail-on-empty', 'Exit with error code 1 if 0 modified files are detected')
   .action(async (options) => {
     try {
       const { result } = await executeAnalysis(options);
@@ -91,6 +108,7 @@ program
   .option('--cwd <dir>', 'Working directory', process.cwd())
   .option('--dry-run', 'Print the command without executing')
   .option('--comment', 'Automatically post or update PR comment and step summary on GitHub')
+  .option('--fail-on-empty', 'Exit with error code 1 if 0 modified files are detected')
   .action(async (options) => {
     try {
       const { result, cwd } = await executeAnalysis(options);
@@ -131,6 +149,7 @@ program
   .option('--repo <owner/repo>', 'Explicit GitHub repository')
   .option('--token <token>', 'Explicit GitHub Token')
   .option('--stdout', 'Only output markdown to stdout without attempting GitHub API post')
+  .option('--fail-on-empty', 'Exit with error code 1 if 0 modified files are detected')
   .action(async (options) => {
     try {
       const { result } = await executeAnalysis(options);
