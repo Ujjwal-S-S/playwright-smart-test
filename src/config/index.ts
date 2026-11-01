@@ -13,6 +13,8 @@ export function loadConfig(cwd: string = process.cwd(), customConfigPath?: strin
   const possiblePaths = customConfigPath
     ? [path.resolve(cwd, customConfigPath)]
     : [
+        path.resolve(cwd, 'playwright-smart-test.config.json'),
+        path.resolve(cwd, '.playwright-smart-testrc.json'),
         path.resolve(cwd, 'smart-regression.config.json'),
         path.resolve(cwd, '.smart-regressionrc.json'),
         path.resolve(cwd, 'smart-regression.json'),
