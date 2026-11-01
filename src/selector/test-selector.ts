@@ -343,21 +343,37 @@ export class TestSelector {
     return selected;
   }
 
+  /**
+   * Safe glob matching preventing CodeQL js/incomplete-sanitization alerts (CWE-20, CWE-80, CWE-116).
+   * Backslashes are escaped first, followed by all regex metacharacters, then converting glob wildcards.
+   */
   private simpleGlobMatch(str: string, pattern: string): boolean {
-    let p = pattern;
+    const normalizedStr = str.replace(/\\/g, '/');
+    let p = pattern.replace(/\\/g, '/');
+
+    let prefix = '';
+    let suffix = '';
+
     if (p.startsWith('**/')) {
-      p = '(?:.+/)?' + p.slice(3);
+      prefix = '(?:.+/)?';
+      p = p.slice(3);
     }
     if (p.endsWith('/**')) {
-      p = p.slice(0, -3) + '(?:/.*)?';
+      suffix = '(?:/.*)?';
+      p = p.slice(0, -3);
     }
 
-    const regexStr = p
-      .replace(/\./g, '\\.')
-      .replace(/\*\*/g, '§§')
-      .replace(/\*/g, '[^/]*')
-      .replace(/§§/g, '.*');
-    return new RegExp(`^${regexStr}$`, 'i').test(str);
+    // CodeQL compliance:
+    // 1. Explicitly escape backslashes before other operations
+    // 2. Escape all special regex metacharacters: . + ? ^ $ { } ( ) | [ ]
+    // 3. Translate glob wildcards: ** -> .*, * -> [^/]*
+    const escaped = p
+      .replace(/\\/g, '\\\\')
+      .replace(/[.+?^${}()|[\]]/g, '\\$&')
+      .replace(/\*\*/g, '.*')
+      .replace(/\*/g, '[^/]*');
+
+    return new RegExp(`^${prefix}${escaped}${suffix}$`, 'i').test(normalizedStr);
   }
 
   private buildPlaywrightCommand(selectedSpecs: string[], isFull: boolean): string {
