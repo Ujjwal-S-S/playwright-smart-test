@@ -29,21 +29,58 @@ export class GitDiffAnalyzer {
   public async getChangedFiles(options: DiffOptions = {}): Promise<DiffFile[]> {
     await this.runGit(['rev-parse', '--is-inside-work-tree']);
 
+    // Ensure remote base branch exists locally if specified (e.g. origin/main in CI)
+    if (options.base) {
+      try {
+        await this.runGit(['rev-parse', '--verify', options.base]);
+      } catch {
+        // Try fetching base branch from remote if not yet cached in runner
+        const remoteMatch = options.base.match(/^([a-zA-Z0-9_-]+)\/(.+)$/);
+        if (remoteMatch) {
+          const remote = remoteMatch[1];
+          const branch = remoteMatch[2];
+          try {
+            await this.runGit(['fetch', remote, `${branch}:refs/remotes/${remote}/${branch}`, '--depth=100']);
+          } catch {
+            // Ignore fetch failure and proceed with available refs
+          }
+        }
+      }
+    }
+
     let diffRangeArgs: string[];
-    if (options.base && options.head) {
-      diffRangeArgs = [`${options.base}...${options.head}`];
-    } else if (options.base) {
-      diffRangeArgs = [options.base];
+    const headRef = options.head || 'HEAD';
+
+    if (options.base) {
+      // Use triple-dot diff to compare common merge-base ancestor with HEAD (PR branch changes)
+      diffRangeArgs = [`${options.base}...${headRef}`];
     } else if (options.staged) {
       diffRangeArgs = ['--cached'];
     } else {
       diffRangeArgs = ['HEAD'];
     }
 
-    const numstatOutput = await this.runGit(['diff', '--numstat', ...diffRangeArgs]);
+    let numstatOutput: string;
+    try {
+      numstatOutput = await this.runGit(['diff', '--numstat', ...diffRangeArgs]);
+    } catch {
+      // Fallback to two-point or single ref if triple-dot fails
+      const fallbackArgs = options.base ? [options.base] : ['HEAD'];
+      try {
+        numstatOutput = await this.runGit(['diff', '--numstat', ...fallbackArgs]);
+        diffRangeArgs = fallbackArgs;
+      } catch {
+        numstatOutput = '';
+      }
+    }
     const numstatMap = this.parseNumstat(numstatOutput);
 
-    const rawDiff = await this.runGit(['diff', ...diffRangeArgs]);
+    let rawDiff: string;
+    try {
+      rawDiff = await this.runGit(['diff', ...diffRangeArgs]);
+    } catch {
+      rawDiff = '';
+    }
     const patchesByFile = this.splitPatches(rawDiff);
 
     const allPaths = Array.from(new Set([...numstatMap.keys(), ...patchesByFile.keys()]));
