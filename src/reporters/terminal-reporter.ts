@@ -72,7 +72,11 @@ export class TerminalReporter {
     console.log(table.toString());
 
     console.log(`\n${pc.bold('⚡ Playwright Execution Command:')}`);
-    console.log(`  ${pc.green(result.playwrightCommand)}\n`);
+    if (result.selectedSpecs.length === 0 && !result.isFullRegression) {
+      console.log(`  ${pc.gray('No tests required for this change (0 impacted tests identified).')}\n`);
+    } else {
+      console.log(`  ${pc.green(result.playwrightCommand)}\n`);
+    }
   }
 
   private static formatRisk(score: string): string {

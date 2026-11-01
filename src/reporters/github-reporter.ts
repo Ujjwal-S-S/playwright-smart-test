@@ -65,7 +65,11 @@ export class GitHubReporter {
     }
 
     markdown += `### ⚡ Playwright Execution Command\n`;
-    markdown += `\`\`\`bash\n${result.playwrightCommand}\n\`\`\`\n\n`;
+    if (result.selectedSpecs.length === 0 && !result.isFullRegression) {
+      markdown += `_No tests executed (0 impacted tests identified)._\n\n`;
+    } else {
+      markdown += `\`\`\`bash\n${result.playwrightCommand}\n\`\`\`\n\n`;
+    }
     markdown += `---\n*Generated automatically by Smart Regression Selection Agent*`;
 
     return markdown;

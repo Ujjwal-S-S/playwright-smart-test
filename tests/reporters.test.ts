@@ -39,4 +39,33 @@ describe('GitHubReporter', () => {
     expect(markdown).toContain('tests/cart.spec.ts');
     expect(markdown).toContain('npx playwright test');
   });
+
+  it('displays no tests executed message when 0 specs are selected', () => {
+    const result: FinalSelectionResult = {
+      isFullRegression: false,
+      changedFiles: [{ path: 'README.md', status: 'modified', additions: 5, deletions: 1 }],
+      changedComponents: [],
+      impactedComponents: [],
+      aiAnalysis: {
+        changedComponents: [],
+        impactedComponents: [],
+        directReason: 'Only documentation modified',
+        rippleEffectReason: 'No regression test execution required',
+        riskScore: 'LOW',
+        recommendedTests: [],
+      },
+      selectedSpecs: [],
+      directlyModifiedSpecs: [],
+      componentRuleSpecs: [],
+      aiRecommendedSpecs: [],
+      playwrightCommand: 'npx playwright test',
+    };
+
+    const markdown = GitHubReporter.generateMarkdown(result);
+
+    expect(markdown).toContain('LOW');
+    expect(markdown).toContain('No tests selected');
+    expect(markdown).toContain('_No tests executed (0 impacted tests identified)._');
+    expect(markdown).not.toContain('```bash\nnpx playwright test\n```');
+  });
 });
