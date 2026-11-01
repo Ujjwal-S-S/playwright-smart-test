@@ -43,15 +43,16 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-  # ── Supply Chain Security ────────────────────────────────────────────────────
-  # All tools below are 100% free for public repositories.
+  # ── Supply Chain Security ──────────────────────────────────────────────────
+  # Note: Socket.dev supply chain scans run automatically on every PR and push
+  # via the Socket GitHub App — no CI action needed for that.
+  # This job handles the remaining free checks:
 
   supply-chain:
     name: Supply Chain Security
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write   # required by dependency-review to post PR comments
 
     steps:
       - name: Checkout Code
@@ -66,20 +67,12 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      # 1. npm audit — catches known CVEs in the npm advisory database (built-in, free)
+      # npm audit — catches known CVEs from the npm advisory database (free, built-in)
       - name: npm audit
         run: npm audit --audit-level=moderate
 
-      # 2. Socket.dev — catches supply chain risks: typosquatting, malware,
-      #    deprecated packages, install scripts, obfuscated code, etc.
-      #    Free for public repos via their GitHub Action.
-      - name: Socket Security Scan
-        uses: SocketDev/socket-workflow-action@v2
-        with:
-          organization-slug: ujjwal-s-s
-
-  # 3. GitHub Dependency Review — runs on PRs only, blocks merging of
-  #    newly introduced vulnerable or unlicensed dependencies. Free for all public repos.
+  # GitHub Dependency Review — PRs only. Blocks merging if a PR introduces a
+  # newly vulnerable or unlicensed dependency. Free for all public repos.
   dependency-review:
     name: Dependency Review (PR only)
     runs-on: ubuntu-latest
@@ -98,7 +91,7 @@ jobs:
           fail-on-severity: moderate
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0
 
-  # ── Publish ──────────────────────────────────────────────────────────────────
+  # ── Publish ────────────────────────────────────────────────────────────────
   publish-npm:
     name: Publish to NPM Registry
     needs: [test-and-build, supply-chain]
