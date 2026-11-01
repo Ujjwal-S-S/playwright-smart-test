@@ -176,7 +176,7 @@ Generate a starter configuration with `npx playwright-smart-test init` or create
 | `playwright-smart-test analyze` | Analyzes Git diff and outputs terminal impact table without executing tests. |
 | `playwright-smart-test run` | Analyzes Git diff and executes **only** the impacted Playwright specs. |
 | `playwright-smart-test comment` | Analyzes diff, generates GitHub Flavored Markdown, and outputs PR report. |
-| `playwright-smart-test init` | Generates a starter `smart-regression.config.json` configuration file. |
+| `playwright-smart-test init` | Generates a starter `playwright-smart-test.config.json` configuration file. |
 
 ### CLI Options
 * `-b, --base <ref>`: Target Git branch or commit to diff against (e.g. `origin/main` or `HEAD~1`).
