@@ -12,7 +12,6 @@ export class PlaywrightRunner {
     console.log(pc.gray(`$ ${command}\n`));
 
     return new Promise((resolve) => {
-      // Split command into executable and args
       const parts = command.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
       const executable = parts[0] || 'npx';
       const args = parts.slice(1).map((a) => a.replace(/^"|"$/g, ''));

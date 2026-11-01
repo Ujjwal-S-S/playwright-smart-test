@@ -7,18 +7,19 @@ export class TerminalReporter {
     console.log('\n' + pc.bold(pc.cyan('🤖 Smart Regression Selection Agent — Impact Analysis')));
     console.log(pc.gray('═'.repeat(65)));
 
-    // Risk Level Badge
     const riskBadge = this.formatRisk(result.aiAnalysis.riskScore);
     console.log(`${pc.bold('Risk Score:')} ${riskBadge}`);
 
-    // Full Regression Warning if triggered
     if (result.isFullRegression) {
       console.log(
         pc.yellow(`\n⚠️  FULL REGRESSION TRIGGERED: ${result.fullRegressionReason || 'Safety threshold reached.'}`)
       );
+    } else if (result.isSmokeFallback) {
+      console.log(
+        pc.yellow(`\n⚠️  SMOKE SAFETY NET TRIGGERED: ${result.smokeFallbackReason}`)
+      );
     }
 
-    // Changed Components & Impacted Areas
     console.log(
       `\n${pc.bold('Changed Components:')} ${
         result.changedComponents.length > 0
@@ -34,14 +35,12 @@ export class TerminalReporter {
       }`
     );
 
-    // AI Semantic Rationale
     console.log(`\n${pc.bold('🧠 AI Impact Rationale:')}`);
     console.log(`  ${pc.white(result.aiAnalysis.directReason)}`);
     if (result.aiAnalysis.rippleEffectReason) {
       console.log(`  ${pc.italic(pc.gray(result.aiAnalysis.rippleEffectReason))}`);
     }
 
-    // Selected Tests Table
     console.log(`\n${pc.bold('🧪 Selected Playwright Regression Tests:')}`);
     const table = new Table({
       head: [pc.cyan('Spec File'), pc.cyan('Type'), pc.cyan('Reason')],
@@ -56,7 +55,15 @@ export class TerminalReporter {
         const aiRec = result.aiAnalysis.recommendedTests.find((t) => t.specFile.endsWith(spec) || spec.endsWith(t.specFile));
         const isIndirect = aiRec ? aiRec.isIndirectImpact : false;
         const typeLabel = isIndirect ? pc.yellow('Ripple') : pc.green('Direct');
-        const reason = aiRec ? aiRec.reason : (result.astDirectSpecs.includes(spec) ? 'Direct AST import dependency' : 'Impacted');
+        const reason = aiRec
+          ? aiRec.reason
+          : result.directlyModifiedSpecs?.includes(spec)
+          ? 'Directly modified spec'
+          : result.componentRuleSpecs?.includes(spec)
+          ? 'Component mapping rule'
+          : result.isSmokeFallback
+          ? 'Smoke safety net fallback'
+          : 'Impacted area';
 
         table.push([spec, typeLabel, reason]);
       }
@@ -64,7 +71,6 @@ export class TerminalReporter {
 
     console.log(table.toString());
 
-    // Playwright execution command
     console.log(`\n${pc.bold('⚡ Playwright Execution Command:')}`);
     console.log(`  ${pc.green(result.playwrightCommand)}\n`);
   }

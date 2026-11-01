@@ -3,7 +3,6 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import { SmartRegressionConfig, SmartRegressionConfigSchema } from './schema.js';
 
-// Load environment variables via industry-standard dotenv
 dotenv.config();
 
 export * from './schema.js';
@@ -33,13 +32,9 @@ export function loadConfig(cwd: string = process.cwd(), customConfigPath?: strin
 
   const parsed = SmartRegressionConfigSchema.parse(loadedConfig);
 
-  // Allow environment variables to override AI config
-  const envApiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+  const envApiKey = process.env.GEMINI_API_KEY;
   if (envApiKey && !parsed.ai.apiKey) {
     parsed.ai.apiKey = envApiKey;
-    if (process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-      parsed.ai.provider = 'openai';
-    }
   }
 
   if (process.env.GEMINI_MODEL) {

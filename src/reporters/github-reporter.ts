@@ -18,6 +18,9 @@ export class GitHubReporter {
     if (result.isFullRegression) {
       markdown += `> [!WARNING]\n`;
       markdown += `> **Full Regression Suite Triggered**: ${result.fullRegressionReason || 'Critical configuration or high impact threshold reached.'}\n\n`;
+    } else if (result.isSmokeFallback) {
+      markdown += `> [!NOTE]\n`;
+      markdown += `> **Smoke Safety Net Activated**: ${result.smokeFallbackReason}\n\n`;
     }
 
     markdown += `| Scope | Identified Areas |\n`;
@@ -48,9 +51,13 @@ export class GitHubReporter {
         const typeBadge = isIndirect ? '🟡 Ripple' : '🟢 Direct';
         const reason = aiRec
           ? aiRec.reason
-          : result.astDirectSpecs.includes(spec)
-          ? 'Direct AST import dependency'
-          : 'Impacted domain';
+          : result.directlyModifiedSpecs?.includes(spec)
+          ? 'Directly modified spec'
+          : result.componentRuleSpecs?.includes(spec)
+          ? 'Component mapping rule'
+          : result.isSmokeFallback
+          ? 'Smoke safety net fallback'
+          : 'Impacted area';
 
         markdown += `| \`${spec}\` | ${typeBadge} | ${reason} |\n`;
       }
