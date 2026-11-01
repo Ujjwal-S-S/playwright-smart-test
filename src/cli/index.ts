@@ -9,6 +9,7 @@ import { TestCatalogIndexer } from '../catalog/test-catalog.js';
 import { TestSelector } from '../selector/test-selector.js';
 import { TerminalReporter } from '../reporters/terminal-reporter.js';
 import { GitHubReporter } from '../reporters/github-reporter.js';
+import { GitHubCommenter } from '../reporters/github-commenter.js';
 import { PlaywrightRunner } from '../runner/playwright-runner.js';
 
 const program = new Command();
@@ -16,7 +17,7 @@ const program = new Command();
 program
   .name('playwright-smart-test')
   .description('AI-Powered Smart Regression Test Selection Agent for Playwright')
-  .version('1.0.2');
+  .version('1.0.6');
 
 async function executeAnalysis(options: {
   base?: string;
@@ -89,10 +90,16 @@ program
   .option('-c, --config <path>', 'Path to custom config file')
   .option('--cwd <dir>', 'Working directory', process.cwd())
   .option('--dry-run', 'Print the command without executing')
+  .option('--comment', 'Automatically post or update PR comment and step summary on GitHub')
   .action(async (options) => {
     try {
       const { result, cwd } = await executeAnalysis(options);
       TerminalReporter.report(result);
+
+      if (options.comment) {
+        const markdown = GitHubReporter.generateMarkdown(result);
+        await GitHubCommenter.postOrUpdateComment(markdown);
+      }
 
       if (options.dryRun) {
         console.log(pc.yellow(`[Dry-run] Would execute: ${result.playwrightCommand}`));
@@ -114,17 +121,35 @@ program
 
 program
   .command('comment')
-  .description('Generate GitHub PR comment markdown')
+  .description('Generate and post GitHub PR comment report')
   .option('-b, --base <ref>', 'Base git commit/branch')
   .option('-h, --head <ref>', 'Head git commit/branch')
   .option('--staged', 'Analyze only staged changes')
   .option('-c, --config <path>', 'Path to custom config file')
   .option('--cwd <dir>', 'Working directory', process.cwd())
+  .option('--pr <number>', 'Explicit pull request number')
+  .option('--repo <owner/repo>', 'Explicit GitHub repository')
+  .option('--token <token>', 'Explicit GitHub Token')
+  .option('--stdout', 'Only output markdown to stdout without attempting GitHub API post')
   .action(async (options) => {
     try {
       const { result } = await executeAnalysis(options);
       const markdown = GitHubReporter.generateMarkdown(result);
-      console.log(markdown);
+
+      if (options.stdout) {
+        console.log(markdown);
+        return;
+      }
+
+      const posted = await GitHubCommenter.postOrUpdateComment(markdown, {
+        pr: options.pr ? parseInt(options.pr, 10) : undefined,
+        repo: options.repo,
+        token: options.token,
+      });
+
+      if (!posted) {
+        console.log(markdown);
+      }
     } catch (err) {
       console.error(pc.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
