@@ -133,11 +133,11 @@ program
 
 program
   .command('init')
-  .description('Create a sample smart-regression.config.json file')
+  .description('Create a sample playwright-smart-test.config.json file')
   .option('--cwd <dir>', 'Target directory', process.cwd())
   .action((options) => {
     const targetDir = options.cwd ? path.resolve(options.cwd) : process.cwd();
-    const filePath = path.join(targetDir, 'smart-regression.config.json');
+    const filePath = path.join(targetDir, 'playwright-smart-test.config.json');
 
     const sample = {
       testDir: 'tests',

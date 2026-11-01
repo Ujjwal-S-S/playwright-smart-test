@@ -76,31 +76,50 @@ Static AST import analyzers often fail in E2E environments because:
 
 ---
 
-## 📦 Installation
+## 📦 Installation & Quick Start
 
-Install as a development dependency:
+### 1. Install as a dev dependency
 
 ```bash
+# npm
 npm install --save-dev playwright-smart-test
+
+# pnpm
+pnpm add -D playwright-smart-test
+
+# yarn
+yarn add -D playwright-smart-test
 ```
 
-Or run directly with `npx`:
+### 2. Configure Gemini API Key
+Obtain a free API key from [Google AI Studio](https://aistudio.google.com/). Set it in your environment or in a `.env` file in your project root:
 
 ```bash
-npx playwright-smart-test analyze
+export GEMINI_API_KEY="your-gemini-api-key"
 ```
 
----
-
-## ⚙️ Configuration (`smart-regression.config.json`)
-
-Generate a starter configuration:
+### 3. Initialize Configuration
+Generate `playwright-smart-test.config.json` in your repository root:
 
 ```bash
 npx playwright-smart-test init
 ```
 
-Or create `smart-regression.config.json` in your repository root:
+### 4. Run Analysis or Execute Tests
+
+```bash
+# Analyze PR diff against main branch (preview selection)
+npx playwright-smart-test analyze --base origin/main
+
+# Run only the impacted Playwright tests
+npx playwright-smart-test run --base origin/main
+```
+
+---
+
+## ⚙️ Configuration (`playwright-smart-test.config.json`)
+
+Generate a starter configuration with `npx playwright-smart-test init` or create `playwright-smart-test.config.json` manually:
 
 ```json
 {
