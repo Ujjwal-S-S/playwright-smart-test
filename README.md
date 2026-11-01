@@ -1,5 +1,4 @@
-# 🎭 Playwright Smart Test (`playwright-smart-test`)
-
+# 🎭 Playwright Smart Test
 [![npm version](https://img.shields.io/npm/v/playwright-smart-test.svg?style=flat-square&color=007acc)](https://www.npmjs.com/package/playwright-smart-test)
 [![Playwright](https://img.shields.io/badge/Playwright-Tested-45ba4b?style=flat-square&logo=playwright&logoColor=white)](https://playwright.dev/)
 [![Google Gemini](https://img.shields.io/badge/Powered%20By-Google%20Gemini-4285F4?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev/)
