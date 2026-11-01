@@ -97,7 +97,8 @@ export class GitDiffAnalyzer {
   }
 
   /**
-   * Split unified diff output into per-file patches
+   * Split unified diff output into per-file patches.
+   * Uses safe deterministic string operations to prevent polynomial regular expression DoS (CWE-1333).
    */
   public splitPatches(rawDiff: string): Map<string, string> {
     const filePatches = new Map<string, string>();
@@ -106,11 +107,34 @@ export class GitDiffAnalyzer {
     const diffSections = rawDiff.split(/(?=^diff --git )/m);
 
     for (const section of diffSections) {
-      if (!section.trim()) continue;
-      const match = section.match(/^diff --git a\/(.+?) b\/(.+?)$/m);
-      if (match) {
-        const filePath = match[2] || match[1];
-        filePatches.set(filePath.replace(/\\/g, '/'), section.trim());
+      const trimmed = section.trim();
+      if (!trimmed) continue;
+
+      // Extract the header line without regex backtracking
+      const newlineIndex = trimmed.indexOf('\n');
+      const headerLine = (newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex)).trim();
+
+      if (!headerLine.startsWith('diff --git ')) continue;
+
+      const line = headerLine.slice(11); // Remove 'diff --git '
+      const sepIndex = line.lastIndexOf(' b/');
+
+      if (sepIndex !== -1) {
+        let filePath = line.slice(sepIndex + 3).trim();
+        // Fallback for deleted files where b/ is /dev/null
+        if (filePath === '/dev/null' || filePath === 'dev/null') {
+          const aPath = line.slice(0, sepIndex).trim();
+          filePath = aPath.startsWith('a/') ? aPath.slice(2) : aPath;
+        }
+
+        // Clean quotes if path was enclosed in quotes by git
+        if (filePath.startsWith('"') && filePath.endsWith('"')) {
+          filePath = filePath.slice(1, -1);
+        }
+
+        if (filePath) {
+          filePatches.set(filePath.replace(/\\/g, '/'), trimmed);
+        }
       }
     }
 

@@ -26,6 +26,18 @@ index 2345678..9abcdef0 100644
     expect(patches.has('src/pages/cart.page.ts')).toBe(true);
   });
 
+  it('safely handles adversarial input without polynomial ReDoS (CWE-1333)', () => {
+    const analyzer = new GitDiffAnalyzer();
+    // Pattern that would trigger ReDoS on polynomial regexes
+    const adversarial = 'diff --git a/' + 'a b/'.repeat(500) + 'test.ts b/' + 'a b/'.repeat(500) + 'test.ts\nindex 123..456\n+added';
+    const start = performance.now();
+    const patches = analyzer.splitPatches(adversarial);
+    const duration = performance.now() - start;
+
+    expect(duration).toBeLessThan(50); // Completes in sub-millisecond without backtracking
+    expect(patches.size).toBe(1);
+  });
+
   it('parses git diff --numstat output accurately', () => {
     const analyzer = new GitDiffAnalyzer();
     const numstat = `
