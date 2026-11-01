@@ -26,34 +26,79 @@ export class GitDiffAnalyzer {
     }
   }
 
+  private sanitizeGitRef(ref: string | undefined): string | null {
+    if (!ref) {
+      return null;
+    }
+
+    const safeRef = ref.trim();
+    if (!safeRef || safeRef.includes('\0') || safeRef.includes('\n') || safeRef.includes('\r')) {
+      return null;
+    }
+
+    if (safeRef.startsWith('-') || safeRef.includes(' ') || safeRef.includes('..')) {
+      return null;
+    }
+
+    if (safeRef.startsWith('/') || safeRef.endsWith('/')) {
+      return null;
+    }
+
+    const validPattern = /^(?:HEAD|[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*|refs\/(?:heads|remotes|tags)\/[A-Za-z0-9._/-]+)$/;
+    if (!validPattern.test(safeRef)) {
+      return null;
+    }
+
+    return safeRef;
+  }
+
+  private parseRemoteRef(ref: string): { remote: string; branch: string } | null {
+    const safeRef = this.sanitizeGitRef(ref);
+    if (!safeRef) {
+      return null;
+    }
+
+    const match = safeRef.match(/^([A-Za-z0-9._-]+)\/([A-Za-z0-9._/-]+)$/);
+    if (!match) {
+      return null;
+    }
+
+    const remote = match[1];
+    const branch = match[2];
+    if (!remote || !branch || branch.includes('..') || branch.startsWith('/') || branch.endsWith('/')) {
+      return null;
+    }
+
+    return { remote, branch };
+  }
+
   public async getChangedFiles(options: DiffOptions = {}): Promise<DiffFile[]> {
     await this.runGit(['rev-parse', '--is-inside-work-tree']);
 
-    // Ensure remote base branch exists locally if specified (e.g. origin/main in CI)
-    if (options.base) {
+    const safeBase = this.sanitizeGitRef(options.base);
+    const safeHead = this.sanitizeGitRef(options.head) ?? 'HEAD';
+
+    if (safeBase) {
       try {
-        await this.runGit(['rev-parse', '--verify', options.base]);
+        await this.runGit(['rev-parse', '--verify', safeBase]);
       } catch {
-        // Try fetching base branch from remote if not yet cached in runner
-        const remoteMatch = options.base.match(/^([a-zA-Z0-9_-]+)\/(.+)$/);
-        if (remoteMatch) {
-          const remote = remoteMatch[1];
-          const branch = remoteMatch[2];
+        const remoteRef = this.parseRemoteRef(safeBase);
+        if (remoteRef) {
+          const { remote, branch } = remoteRef;
           try {
-            await this.runGit(['fetch', remote, `${branch}:refs/remotes/${remote}/${branch}`, '--depth=100']);
+            await this.runGit(['fetch', '--depth=100', remote, `${branch}:refs/remotes/${remote}/${branch}`]);
           } catch {
-            // Ignore fetch failure and proceed with available refs
+            // Ignore fetch failure and proceed with available refs.
           }
         }
       }
     }
 
     let diffRangeArgs: string[];
-    const headRef = options.head || 'HEAD';
-
-    if (options.base) {
-      // Use triple-dot diff to compare common merge-base ancestor with HEAD (PR branch changes)
-      diffRangeArgs = [`${options.base}...${headRef}`];
+    if (safeBase && safeHead) {
+      diffRangeArgs = [`${safeBase}...${safeHead}`];
+    } else if (safeBase) {
+      diffRangeArgs = [safeBase];
     } else if (options.staged) {
       diffRangeArgs = ['--cached'];
     } else {
@@ -64,8 +109,7 @@ export class GitDiffAnalyzer {
     try {
       numstatOutput = await this.runGit(['diff', '--numstat', ...diffRangeArgs]);
     } catch {
-      // Fallback to two-point or single ref if triple-dot fails
-      const fallbackArgs = options.base ? [options.base] : ['HEAD'];
+      const fallbackArgs = safeBase ? [safeBase] : ['HEAD'];
       try {
         numstatOutput = await this.runGit(['diff', '--numstat', ...fallbackArgs]);
         diffRangeArgs = fallbackArgs;
@@ -147,24 +191,21 @@ export class GitDiffAnalyzer {
       const trimmed = section.trim();
       if (!trimmed) continue;
 
-      // Extract the header line without regex backtracking
       const newlineIndex = trimmed.indexOf('\n');
       const headerLine = (newlineIndex === -1 ? trimmed : trimmed.slice(0, newlineIndex)).trim();
 
       if (!headerLine.startsWith('diff --git ')) continue;
 
-      const line = headerLine.slice(11); // Remove 'diff --git '
+      const line = headerLine.slice(11);
       const sepIndex = line.lastIndexOf(' b/');
 
       if (sepIndex !== -1) {
         let filePath = line.slice(sepIndex + 3).trim();
-        // Fallback for deleted files where b/ is /dev/null
         if (filePath === '/dev/null' || filePath === 'dev/null') {
           const aPath = line.slice(0, sepIndex).trim();
           filePath = aPath.startsWith('a/') ? aPath.slice(2) : aPath;
         }
 
-        // Clean quotes if path was enclosed in quotes by git
         if (filePath.startsWith('"') && filePath.endsWith('"')) {
           filePath = filePath.slice(1, -1);
         }
